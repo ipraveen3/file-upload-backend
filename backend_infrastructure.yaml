@@ -1,38 +1,76 @@
 Resources:
+  MyS3FileUploadInputBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: file-upload-input-bucket-praveen
+      PublicAccessBlockConfiguration:   
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      CorsConfiguration:
+        CorsRules:
+        - AllowedHeaders:
+            - "*"
+          AllowedMethods:
+            - GET
+            - PUT
+            - HEAD
+            - POST
+          AllowedOrigins:
+            - "*"
   LambdaFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
       Code:
         ZipFile: |
           import json
+          import boto3
+          import uuid
+
 
           print('loading function')
 
           def lambda_handler(event, context):
-              # TODO implement
+              
               print('event:\n')
               print(event)
-              transactionId = event['a']
               
-              print('\ntransactionId:'+transactionId)
+              text_ipt = event['text_input']
+              object_name = event['ipt_file_name']
               
-              transction_resp = {}
               
-              transction_resp['transactionId'] = transactionId + '-from lambda'
-              transction_resp['message'] = 'msg from lambda'
+              
+              
+              s3_client = boto3.client('s3')
+              bucket_name = 'file-upload-input-bucket-praveen'
+              table_name = 'Dynamo_api-lambda-db'
+              expiration = 300
+
+              upd_details = s3_client.generate_presigned_post(bucket_name, object_name, ExpiresIn=expiration)
+              
+              print('u:',upd_details)
+
+              
+              dynamo_db_client = boto3.client('dynamodb')
+              
+              new_item = {'id':{},'input_text':{},'input_file_path':{}}
+              new_item['id']['S'] = str(uuid.uuid4())
+              new_item['input_text']['S'] = text_ipt
+              new_item['input_file_path']['S'] = bucket_name +'/' + object_name
+              
+              dynamo_db_client.put_item(TableName = table_name, Item= new_item)
+
               
               http_resp = {}
               http_resp['statusCode'] = 200
               http_resp['headers'] = {}
               http_resp['headers']['Content-Type'] = 'application/json'
-              http_resp['body'] = transction_resp
+              http_resp['body'] = upd_details
               
-              print(json.dumps(transction_resp))
               print('\n\nhttpres:\n')
               print(http_resp)
-              return http_resp
               
-
               return http_resp
       FunctionName:
         Ref: LambdaFuncName
@@ -176,6 +214,10 @@ Resources:
                   - 'dynamodb:Scan'
                   - 'dynamodb:Query'
                   - 'dynamodb:UpdateItem'
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - 's3:*'
                 Resource: '*'
               - Effect: Allow
                 Action:
