@@ -19,6 +19,16 @@ Resources:
             - POST
           AllowedOrigins:
             - "*"
+  MyS3FileUploadOutputBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: file-upload-output-bucket-praveen
+      PublicAccessBlockConfiguration:   
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      
   LambdaFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
@@ -222,31 +232,62 @@ Resources:
       Policies:
         - PolicyName: Policy_api-lambda-db
           PolicyDocument:
-            Version: 2012-10-17
+            Version: '2012-10-17'
             Statement:
-              - Effect: Allow
-                Action:
-                  - 'dynamodb:BatchGetItem'
-                  - 'dynamodb:BatchWriteItem'
-                  - 'dynamodb:TagResource'
-                  - 'dynamodb:UntagResource'
-                  - 'dynamodb:PutItem'
-                  - 'dynamodb:DeleteItem'
-                  - 'dynamodb:GetItem'
-                  - 'dynamodb:Scan'
-                  - 'dynamodb:Query'
-                  - 'dynamodb:UpdateItem'
-                Resource: '*'
-              - Effect: Allow
-                Action:
-                  - 's3:*'
-                Resource: '*'
-              - Effect: Allow
-                Action:
-                  - 'logs:CreateLogStream'
-                  - 'logs:CreateLogGroup'
-                  - 'logs:PutLogEvents'
-                Resource: '*'
+            - Sid: VisualEditor0
+              Effect: Allow
+              Action:
+              - dynamodb:BatchGetItem
+              - dynamodb:BatchWriteItem
+              - dynamodb:UntagResource
+              - dynamodb:PutItem
+              - s3:*
+              - ec2:CreateTags
+              - dynamodb:DeleteItem
+              - ec2:RunInstances
+              - dynamodb:Scan
+              - dynamodb:Query
+              - dynamodb:UpdateItem
+              - logs:CreateLogGroup
+              - logs:PutLogEvents
+              - iam:*
+              - logs:CreateLogStream
+              - dynamodb:TagResource
+              - dynamodb:GetItem
+              Resource: "*"
+  IAMRoleEC2:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: auto-file-processor-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: Policy_s3_dynamodb_ec2
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Sid: VisualEditor0
+              Effect: Allow
+              Action:
+              - s3:*
+              - dynamodb:*
+              - ec2:*
+              Resource: "*"
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties: 
+      InstanceProfileName: auto-file-processor
+      Path: /
+      Roles: 
+       - !Ref IAMRoleEC2
 Parameters:
   LambdaFuncName:
     Type: String
